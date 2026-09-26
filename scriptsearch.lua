@@ -19,6 +19,10 @@ local MM2_PLACE_IDS = {
 	[121787682648572] = true,
 }
 
+--==================================================
+-- NOTIFICATION UTILITY
+--==================================================
+
 local function sendNotification(title, text)
 	pcall(function()
 		StarterGui:SetCore("SendNotification", {
@@ -29,24 +33,31 @@ local function sendNotification(title, text)
 	end)
 end
 
+--==================================================
+-- GAME CHECK
+--==================================================
+
 local function isInMM2()
 	if MM2_PLACE_IDS[game.PlaceId] then
-		return true
+		return true, "PlaceId matched"
 	end
 
 	local ok, result = pcall(function()
 		return MarketplaceService:GetProductInfo(game.PlaceId).Name
 	end)
 
-	if ok and result and string.find(string.lower(result), "murder mystery 2", 1, true) then
-		return true
+	if ok and result then
+		if string.find(string.lower(result), "murder mystery 2", 1, true) then
+			return true, "Name matched"
+		end
+		return false, "Current game: " .. tostring(result)
 	end
 
-	return false
+	return false, "Could not verify game name"
 end
 
 --==================================================
--- CLEANUP (destroys any existing launcher AND the MM2 menu)
+-- CLEANUP
 --==================================================
 
 local function destroyExistingGuis()
@@ -309,7 +320,7 @@ local function getLayoutOrder()
 end
 
 --==================================================
--- HELPERS (match MM2 menu style)
+-- HELPERS
 --==================================================
 
 local function createSectionTitle(text)
@@ -409,6 +420,30 @@ local function registerScriptButton(name, button)
 end
 
 --==================================================
+-- CLOSE / REOPEN LOGIC (needed for auto-close)
+--==================================================
+
+local menuVisible = true
+
+local function showMenu()
+	menuVisible = true
+	frame.Visible = true
+	reopenButton.Visible = false
+end
+
+local function hideMenu()
+	menuVisible = false
+	frame.Visible = false
+	reopenButton.Visible = true
+end
+
+local function closeLauncherCompletely()
+	-- Destroy the whole launcher ScreenGui so it's fully gone
+	menuVisible = false
+	gui:Destroy()
+end
+
+--==================================================
 -- MM2 SCRIPT BUTTON
 --==================================================
 
@@ -435,35 +470,89 @@ local function resetMm2Button()
 end
 
 mm2Button.MouseButton1Click:Connect(function()
-	if not isInMM2() then
-		mm2Button.Text = "Not in MM2"
+	-- GAME CHECK
+	local inMM2, reason = isInMM2()
+	if not inMM2 then
+		mm2Button.Text = "Wrong game"
 		mm2Button.TextColor3 = Color3.fromRGB(255, 100, 100)
 		mm2Indicator.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-		sendNotification("Scripts by Arbuz", "This script only works in Murder Mystery 2!")
+		sendNotification("Scripts by Arbuz", "MM2 only works in Murder Mystery 2.\n" .. tostring(reason))
+		warn("[Scripts by Arbuz] Not in MM2 - " .. tostring(reason))
 		task.wait(2)
 		resetMm2Button()
 		return
 	end
 
-	mm2Button.Text = "Loading..."
+	-- DOWNLOAD
+	mm2Button.Text = "Downloading..."
 	mm2Button.TextColor3 = Color3.fromRGB(255, 205, 50)
 	mm2Indicator.BackgroundColor3 = Color3.fromRGB(255, 205, 50)
 
-	local success, err = pcall(function()
-		loadstring(game:HttpGet("https://raw.githubusercontent.com/arbuz181pl/MM2-MENU-BY-ARBUZ/refs/heads/main/MM2MENU.lua"))()
+	local url = "https://raw.githubusercontent.com/arbuz181pl/MM2-MENU-BY-ARBUZ/refs/heads/main/MM2MENU.lua"
+	local downloadOk, content = pcall(function()
+		return game:HttpGet(url .. "?v=" .. tick())
 	end)
 
-	if success then
-		resetMm2Button()
-	else
-		mm2Button.Text = "Error"
+	if not downloadOk then
+		mm2Button.Text = "Download failed"
 		mm2Button.TextColor3 = Color3.fromRGB(255, 100, 100)
 		mm2Indicator.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-		warn("[Scripts by Arbuz] Failed to load MM2:", err)
-		sendNotification("Scripts by Arbuz", "Failed to load MM2 script. Check console (F9).")
-		task.wait(2)
+		sendNotification("Scripts by Arbuz", "Failed to download MM2 script.\n" .. tostring(content))
+		warn("[Scripts by Arbuz] HttpGet failed:", content)
+		task.wait(3)
 		resetMm2Button()
+		return
 	end
+
+	if not content or #content == 0 then
+		mm2Button.Text = "Empty file"
+		mm2Button.TextColor3 = Color3.fromRGB(255, 100, 100)
+		mm2Indicator.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+		sendNotification("Scripts by Arbuz", "Downloaded file is empty. Check the URL.")
+		warn("[Scripts by Arbuz] Downloaded content is empty")
+		task.wait(3)
+		resetMm2Button()
+		return
+	end
+
+	-- COMPILE
+	mm2Button.Text = "Compiling..."
+	mm2Button.TextColor3 = Color3.fromRGB(255, 205, 50)
+
+	local fn, compileErr = loadstring(content)
+	if not fn then
+		mm2Button.Text = "Compile error"
+		mm2Button.TextColor3 = Color3.fromRGB(255, 100, 100)
+		mm2Indicator.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+		sendNotification("Scripts by Arbuz", "MM2 script has a syntax error. Check F9.")
+		warn("[Scripts by Arbuz] Compile error:", compileErr)
+		task.wait(3)
+		resetMm2Button()
+		return
+	end
+
+	-- RUN
+	mm2Button.Text = "Running..."
+	mm2Button.TextColor3 = Color3.fromRGB(255, 205, 50)
+
+	local runOk, runErr = pcall(fn)
+	if not runOk then
+		mm2Button.Text = "Runtime error"
+		mm2Button.TextColor3 = Color3.fromRGB(255, 100, 100)
+		mm2Indicator.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+		sendNotification("Scripts by Arbuz", "MM2 script crashed on run. Check F9.")
+		warn("[Scripts by Arbuz] Runtime error:", runErr)
+		task.wait(3)
+		resetMm2Button()
+		return
+	end
+
+	-- SUCCESS — close the launcher fully
+	resetMm2Button()
+	sendNotification("Scripts by Arbuz", "MM2 loaded successfully.")
+
+	task.wait(0.2)
+	closeLauncherCompletely()
 end)
 
 registerScriptButton("MM2", mm2Button)
@@ -523,19 +612,6 @@ end)
 --==================================================
 
 local minimized = false
-local menuVisible = true
-
-local function showMenu()
-	menuVisible = true
-	frame.Visible = true
-	reopenButton.Visible = false
-end
-
-local function hideMenu()
-	menuVisible = false
-	frame.Visible = false
-	reopenButton.Visible = true
-end
 
 lockButton.MouseButton1Click:Connect(function()
 	guiLocked = not guiLocked
@@ -581,6 +657,7 @@ end)
 UserInputService.InputBegan:Connect(function(input, processed)
 	if processed then return end
 	if input.KeyCode == Enum.KeyCode.RightShift then
+		if not gui.Parent then return end
 		if menuVisible then
 			hideMenu()
 		else
