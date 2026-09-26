@@ -420,7 +420,7 @@ local function registerScriptButton(name, button)
 end
 
 --==================================================
--- CLOSE / REOPEN LOGIC (needed for auto-close)
+-- CLOSE / REOPEN LOGIC
 --==================================================
 
 local menuVisible = true
@@ -435,12 +435,6 @@ local function hideMenu()
 	menuVisible = false
 	frame.Visible = false
 	reopenButton.Visible = true
-end
-
-local function closeLauncherCompletely()
-	-- Destroy the whole launcher ScreenGui so it's fully gone
-	menuVisible = false
-	gui:Destroy()
 end
 
 --==================================================
@@ -470,7 +464,9 @@ local function resetMm2Button()
 end
 
 mm2Button.MouseButton1Click:Connect(function()
-	-- GAME CHECK
+	--==================================================
+	-- STEP 1: GAME CHECK
+	--==================================================
 	local inMM2, reason = isInMM2()
 	if not inMM2 then
 		mm2Button.Text = "Wrong game"
@@ -483,7 +479,9 @@ mm2Button.MouseButton1Click:Connect(function()
 		return
 	end
 
-	-- DOWNLOAD
+	--==================================================
+	-- STEP 2: DOWNLOAD
+	--==================================================
 	mm2Button.Text = "Downloading..."
 	mm2Button.TextColor3 = Color3.fromRGB(255, 205, 50)
 	mm2Indicator.BackgroundColor3 = Color3.fromRGB(255, 205, 50)
@@ -515,9 +513,12 @@ mm2Button.MouseButton1Click:Connect(function()
 		return
 	end
 
-	-- COMPILE
+	--==================================================
+	-- STEP 3: COMPILE
+	--==================================================
 	mm2Button.Text = "Compiling..."
 	mm2Button.TextColor3 = Color3.fromRGB(255, 205, 50)
+	mm2Indicator.BackgroundColor3 = Color3.fromRGB(255, 205, 50)
 
 	local fn, compileErr = loadstring(content)
 	if not fn then
@@ -531,28 +532,32 @@ mm2Button.MouseButton1Click:Connect(function()
 		return
 	end
 
-	-- RUN
-	mm2Button.Text = "Running..."
-	mm2Button.TextColor3 = Color3.fromRGB(255, 205, 50)
+	--==================================================
+	-- STEP 4: CLOSE LAUNCHER FIRST, THEN RUN MM2
+	--==================================================
+	-- We destroy the launcher BEFORE running MM2 so it disappears
+	-- immediately, regardless of whether MM2 yields, errors, or blocks.
+	sendNotification("Scripts by Arbuz", "Loading MM2...")
+	gui:Destroy()
 
-	local runOk, runErr = pcall(fn)
-	if not runOk then
-		mm2Button.Text = "Runtime error"
-		mm2Button.TextColor3 = Color3.fromRGB(255, 100, 100)
-		mm2Indicator.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-		sendNotification("Scripts by Arbuz", "MM2 script crashed on run. Check F9.")
-		warn("[Scripts by Arbuz] Runtime error:", runErr)
-		task.wait(3)
-		resetMm2Button()
-		return
-	end
+	-- Give one frame for the GUI to actually disappear
+	task.wait(0.1)
 
-	-- SUCCESS — close the launcher fully
-	resetMm2Button()
-	sendNotification("Scripts by Arbuz", "MM2 loaded successfully.")
-
-	task.wait(0.2)
-	closeLauncherCompletely()
+	-- Run MM2 in a separate thread so the launcher's click handler
+	-- doesn't block on it and errors are logged cleanly.
+	task.spawn(function()
+		local runOk, runErr = pcall(fn)
+		if not runOk then
+			warn("[Scripts by Arbuz] MM2 runtime error:", runErr)
+			pcall(function()
+				StarterGui:SetCore("SendNotification", {
+					Title = "Scripts by Arbuz",
+					Text = "MM2 script crashed. Check F9.",
+					Duration = 5
+				})
+			end)
+		end
+	end)
 end)
 
 registerScriptButton("MM2", mm2Button)
