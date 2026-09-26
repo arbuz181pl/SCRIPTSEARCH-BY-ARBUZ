@@ -10,6 +10,10 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
+--==================================================
+-- MM2 GAME IDS
+--==================================================
+
 local MM2_PLACE_IDS = {
 	[142823291] = true,
 	[121787682648572] = true,
@@ -25,8 +29,6 @@ local function sendNotification(title, text)
 	end)
 end
 
--- Game check is now a function that runs ONLY when clicked.
--- Wrapped in pcall so a failed API call can't crash the script.
 local function isInMM2()
 	if MM2_PLACE_IDS[game.PlaceId] then
 		return true
@@ -43,8 +45,25 @@ local function isInMM2()
 	return false
 end
 
-local existing = playerGui:FindFirstChild("ScriptsByArbuz")
-if existing then existing:Destroy() end
+--==================================================
+-- CLEANUP (destroys any existing launcher AND the MM2 menu)
+--==================================================
+
+local function destroyExistingGuis()
+	local names = { "ScriptsByArbuz", "MM2MenuByArbuz" }
+	for _, name in ipairs(names) do
+		local existing = playerGui:FindFirstChild(name)
+		if existing then
+			existing:Destroy()
+		end
+	end
+end
+
+destroyExistingGuis()
+
+--==================================================
+-- GUI
+--==================================================
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "ScriptsByArbuz"
@@ -54,6 +73,10 @@ gui.IgnoreGuiInset = false
 gui.Enabled = true
 gui.DisplayOrder = 100
 gui.Parent = playerGui
+
+--==================================================
+-- MAIN FRAME
+--==================================================
 
 local frame = Instance.new("Frame")
 frame.Name = "Main"
@@ -74,6 +97,10 @@ frameStroke.Color = Color3.fromRGB(55, 57, 65)
 frameStroke.Thickness = 1
 frameStroke.Parent = frame
 
+--==================================================
+-- HEADER
+--==================================================
+
 local header = Instance.new("Frame")
 header.Name = "Header"
 header.Size = UDim2.new(1, 0, 0, 48)
@@ -86,19 +113,73 @@ local headerCorner = Instance.new("UICorner")
 headerCorner.CornerRadius = UDim.new(0, 12)
 headerCorner.Parent = header
 
+--==================================================
+-- TITLE
+--==================================================
+
 local title = Instance.new("TextLabel")
 title.Name = "Title"
-title.Size = UDim2.new(1, -50, 1, 0)
+title.Size = UDim2.new(1, -120, 1, 0)
 title.Position = UDim2.fromOffset(10, 0)
 title.BackgroundTransparency = 1
 title.Text = "SCRIPTS BY ARBUZ"
 title.TextColor3 = Color3.fromRGB(245, 245, 250)
-title.TextSize = 13
+title.TextSize = 12
 title.Font = Enum.Font.GothamBold
 title.TextXAlignment = Enum.TextXAlignment.Left
 title.TextYAlignment = Enum.TextYAlignment.Center
 title.ZIndex = 2
 title.Parent = header
+
+--==================================================
+-- CLOSE BUTTON
+--==================================================
+
+local closeButton = Instance.new("TextButton")
+closeButton.Name = "Close"
+closeButton.Size = UDim2.fromOffset(30, 30)
+closeButton.Position = UDim2.new(1, -105, 0.5, -15)
+closeButton.BackgroundColor3 = Color3.fromRGB(42, 44, 52)
+closeButton.Text = "X"
+closeButton.TextSize = 16
+closeButton.TextColor3 = Color3.fromRGB(255, 200, 200)
+closeButton.Font = Enum.Font.GothamBold
+closeButton.BorderSizePixel = 0
+closeButton.AutoButtonColor = false
+closeButton.Active = true
+closeButton.ZIndex = 5
+closeButton.Parent = header
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 7)
+closeCorner.Parent = closeButton
+
+--==================================================
+-- LOCK BUTTON
+--==================================================
+
+local lockButton = Instance.new("TextButton")
+lockButton.Name = "Lock"
+lockButton.Size = UDim2.fromOffset(30, 30)
+lockButton.Position = UDim2.new(1, -70, 0.5, -15)
+lockButton.BackgroundColor3 = Color3.fromRGB(42, 44, 52)
+lockButton.Text = "🔓"
+lockButton.TextSize = 14
+lockButton.TextColor3 = Color3.new(1, 1, 1)
+lockButton.Font = Enum.Font.GothamBold
+lockButton.BorderSizePixel = 0
+lockButton.AutoButtonColor = false
+lockButton.Active = true
+lockButton.ZIndex = 5
+lockButton.Parent = header
+
+local lockCorner = Instance.new("UICorner")
+lockCorner.CornerRadius = UDim.new(0, 7)
+lockCorner.Parent = lockButton
+
+--==================================================
+-- MINIMIZE BUTTON
+--==================================================
 
 local minimizeButton = Instance.new("TextButton")
 minimizeButton.Name = "Minimize"
@@ -118,6 +199,90 @@ minimizeButton.Parent = header
 local minimizeCorner = Instance.new("UICorner")
 minimizeCorner.CornerRadius = UDim.new(0, 7)
 minimizeCorner.Parent = minimizeButton
+
+--==================================================
+-- RESIZE HANDLE
+--==================================================
+
+local resizeHandle = Instance.new("TextButton")
+resizeHandle.Name = "ResizeHandle"
+resizeHandle.Size = UDim2.fromOffset(16, 16)
+resizeHandle.Position = UDim2.new(1, -16, 1, -16)
+resizeHandle.BackgroundColor3 = Color3.fromRGB(55, 57, 65)
+resizeHandle.BorderSizePixel = 0
+resizeHandle.Text = ""
+resizeHandle.AutoButtonColor = false
+resizeHandle.Active = true
+resizeHandle.ZIndex = 30
+resizeHandle.Parent = frame
+
+local resizeCorner = Instance.new("UICorner")
+resizeCorner.CornerRadius = UDim.new(0, 4)
+resizeCorner.Parent = resizeHandle
+
+local MIN_WIDTH = 240
+local MIN_HEIGHT = 200
+
+local resizing = false
+local resizeStart
+local resizeStartSize
+
+resizeHandle.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		resizing = true
+		resizeStart = input.Position
+		resizeStartSize = frame.AbsoluteSize
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if not resizing then return end
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		local delta = input.Position - resizeStart
+		local newWidth = math.max(MIN_WIDTH, resizeStartSize.X + delta.X)
+		local newHeight = math.max(MIN_HEIGHT, resizeStartSize.Y + delta.Y)
+		frame.Size = UDim2.fromOffset(newWidth, newHeight)
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		resizing = false
+	end
+end)
+
+--==================================================
+-- REOPEN BUTTON
+--==================================================
+
+local reopenButton = Instance.new("TextButton")
+reopenButton.Name = "Reopen"
+reopenButton.Size = UDim2.fromOffset(50, 50)
+reopenButton.Position = UDim2.new(0, 15, 0.5, -25)
+reopenButton.BackgroundColor3 = Color3.fromRGB(29, 30, 37)
+reopenButton.BorderSizePixel = 0
+reopenButton.Text = "ARB"
+reopenButton.TextColor3 = Color3.fromRGB(245, 245, 250)
+reopenButton.TextSize = 13
+reopenButton.Font = Enum.Font.GothamBold
+reopenButton.AutoButtonColor = false
+reopenButton.Active = true
+reopenButton.Visible = false
+reopenButton.ZIndex = 50
+reopenButton.Parent = gui
+
+local reopenCorner = Instance.new("UICorner")
+reopenCorner.CornerRadius = UDim.new(1, 0)
+reopenCorner.Parent = reopenButton
+
+local reopenStroke = Instance.new("UIStroke")
+reopenStroke.Color = Color3.fromRGB(80, 82, 90)
+reopenStroke.Thickness = 2
+reopenStroke.Parent = reopenButton
+
+--==================================================
+-- CONTENT
+--==================================================
 
 local content = Instance.new("ScrollingFrame")
 content.Name = "Content"
@@ -143,6 +308,70 @@ local function getLayoutOrder()
 	return currentLayoutOrder
 end
 
+--==================================================
+-- HELPERS (match MM2 menu style)
+--==================================================
+
+local function createSectionTitle(text)
+	local label = Instance.new("TextLabel")
+	label.Name = text .. "Header"
+	label.Size = UDim2.new(1, 0, 0, 20)
+	label.BackgroundTransparency = 1
+	label.Text = text
+	label.TextColor3 = Color3.fromRGB(150, 153, 165)
+	label.TextSize = 11
+	label.Font = Enum.Font.GothamBold
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.LayoutOrder = getLayoutOrder()
+	label.Parent = content
+	return label
+end
+
+local function createScriptButton(name, text)
+	local button = Instance.new("TextButton")
+	button.Name = name
+	button.Size = UDim2.new(1, 0, 0, 40)
+	button.BackgroundColor3 = Color3.fromRGB(34, 36, 43)
+	button.BorderSizePixel = 0
+	button.Text = text
+	button.TextColor3 = Color3.fromRGB(230, 230, 235)
+	button.TextSize = 13
+	button.Font = Enum.Font.GothamSemibold
+	button.AutoButtonColor = false
+	button.LayoutOrder = getLayoutOrder()
+	button.Parent = content
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = button
+
+	local indicator = Instance.new("Frame")
+	indicator.Name = "Indicator"
+	indicator.Size = UDim2.fromOffset(5, 20)
+	indicator.Position = UDim2.fromOffset(8, 10)
+	indicator.BackgroundColor3 = Color3.fromRGB(80, 82, 90)
+	indicator.BorderSizePixel = 0
+	indicator.Parent = button
+
+	local indicatorCorner = Instance.new("UICorner")
+	indicatorCorner.CornerRadius = UDim.new(1, 0)
+	indicatorCorner.Parent = indicator
+
+	button.MouseEnter:Connect(function()
+		button.BackgroundColor3 = Color3.fromRGB(45, 47, 56)
+	end)
+
+	button.MouseLeave:Connect(function()
+		button.BackgroundColor3 = Color3.fromRGB(34, 36, 43)
+	end)
+
+	return button, indicator
+end
+
+--==================================================
+-- SEARCH BAR
+--==================================================
+
 local searchBox = Instance.new("TextBox")
 searchBox.Name = "SearchBox"
 searchBox.Size = UDim2.new(1, 0, 0, 36)
@@ -167,45 +396,29 @@ searchPadding.PaddingLeft = UDim.new(0, 10)
 searchPadding.PaddingRight = UDim.new(0, 10)
 searchPadding.Parent = searchBox
 
+--==================================================
+-- SCRIPT LIST
+--==================================================
+
+createSectionTitle("SCRIPTS")
+
 local scriptButtons = {}
 
 local function registerScriptButton(name, button)
 	table.insert(scriptButtons, { Name = name, Button = button })
 end
 
-local mm2Button = Instance.new("TextButton")
-mm2Button.Name = "MM2"
-mm2Button.Size = UDim2.new(1, 0, 0, 44)
-mm2Button.BackgroundColor3 = Color3.fromRGB(34, 36, 43)
-mm2Button.BorderSizePixel = 0
-mm2Button.Text = "MM2"
-mm2Button.TextColor3 = Color3.fromRGB(230, 230, 235)
-mm2Button.TextSize = 14
-mm2Button.Font = Enum.Font.GothamBold
-mm2Button.AutoButtonColor = false
-mm2Button.LayoutOrder = getLayoutOrder()
-mm2Button.Parent = content
+--==================================================
+-- MM2 SCRIPT BUTTON
+--==================================================
 
-local mm2Corner = Instance.new("UICorner")
-mm2Corner.CornerRadius = UDim.new(0, 8)
-mm2Corner.Parent = mm2Button
-
-local mm2Indicator = Instance.new("Frame")
-mm2Indicator.Name = "Indicator"
-mm2Indicator.Size = UDim2.fromOffset(5, 24)
-mm2Indicator.Position = UDim2.fromOffset(8, 10)
+local mm2Button, mm2Indicator = createScriptButton("MM2", "MM2")
 mm2Indicator.BackgroundColor3 = Color3.fromRGB(230, 55, 55)
-mm2Indicator.BorderSizePixel = 0
-mm2Indicator.Parent = mm2Button
-
-local mm2IndicatorCorner = Instance.new("UICorner")
-mm2IndicatorCorner.CornerRadius = UDim.new(1, 0)
-mm2IndicatorCorner.Parent = mm2Indicator
 
 local mm2SubLabel = Instance.new("TextLabel")
 mm2SubLabel.Name = "SubLabel"
-mm2SubLabel.Size = UDim2.new(1, -30, 0, 14)
-mm2SubLabel.Position = UDim2.new(0, 22, 1, -16)
+mm2SubLabel.Size = UDim2.new(1, -30, 0, 12)
+mm2SubLabel.Position = UDim2.new(0, 22, 1, -14)
 mm2SubLabel.BackgroundTransparency = 1
 mm2SubLabel.Text = "Murder Mystery 2 only"
 mm2SubLabel.TextColor3 = Color3.fromRGB(150, 153, 165)
@@ -215,23 +428,17 @@ mm2SubLabel.TextXAlignment = Enum.TextXAlignment.Left
 mm2SubLabel.ZIndex = 3
 mm2SubLabel.Parent = mm2Button
 
-mm2Button.MouseEnter:Connect(function()
-	mm2Button.BackgroundColor3 = Color3.fromRGB(45, 47, 56)
-end)
-
-mm2Button.MouseLeave:Connect(function()
-	mm2Button.BackgroundColor3 = Color3.fromRGB(34, 36, 43)
-end)
-
 local function resetMm2Button()
 	mm2Button.Text = "MM2"
 	mm2Button.TextColor3 = Color3.fromRGB(230, 230, 235)
+	mm2Indicator.BackgroundColor3 = Color3.fromRGB(230, 55, 55)
 end
 
 mm2Button.MouseButton1Click:Connect(function()
 	if not isInMM2() then
 		mm2Button.Text = "Not in MM2"
 		mm2Button.TextColor3 = Color3.fromRGB(255, 100, 100)
+		mm2Indicator.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
 		sendNotification("Scripts by Arbuz", "This script only works in Murder Mystery 2!")
 		task.wait(2)
 		resetMm2Button()
@@ -240,6 +447,7 @@ mm2Button.MouseButton1Click:Connect(function()
 
 	mm2Button.Text = "Loading..."
 	mm2Button.TextColor3 = Color3.fromRGB(255, 205, 50)
+	mm2Indicator.BackgroundColor3 = Color3.fromRGB(255, 205, 50)
 
 	local success, err = pcall(function()
 		loadstring(game:HttpGet("https://raw.githubusercontent.com/arbuz181pl/MM2-MENU-BY-ARBUZ/refs/heads/main/MM2MENU.lua"))()
@@ -250,6 +458,7 @@ mm2Button.MouseButton1Click:Connect(function()
 	else
 		mm2Button.Text = "Error"
 		mm2Button.TextColor3 = Color3.fromRGB(255, 100, 100)
+		mm2Indicator.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
 		warn("[Scripts by Arbuz] Failed to load MM2:", err)
 		sendNotification("Scripts by Arbuz", "Failed to load MM2 script. Check console (F9).")
 		task.wait(2)
@@ -258,6 +467,10 @@ mm2Button.MouseButton1Click:Connect(function()
 end)
 
 registerScriptButton("MM2", mm2Button)
+
+--==================================================
+-- SEARCH FILTER
+--==================================================
 
 searchBox:GetPropertyChangedSignal("Text"):Connect(function()
 	local query = string.lower(searchBox.Text)
@@ -270,11 +483,17 @@ searchBox:GetPropertyChangedSignal("Text"):Connect(function()
 	end
 end)
 
+--==================================================
+-- DRAG MENU
+--==================================================
+
+local guiLocked = false
 local dragging = false
 local dragStart
 local dragStartPosition
 
 header.InputBegan:Connect(function(input)
+	if guiLocked then return end
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 		dragging = true
 		dragStart = input.Position
@@ -283,7 +502,7 @@ header.InputBegan:Connect(function(input)
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-	if not dragging then return end
+	if not dragging or guiLocked then return end
 	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
 		local delta = input.Position - dragStart
 		frame.Position = UDim2.new(
@@ -299,7 +518,35 @@ UserInputService.InputEnded:Connect(function(input)
 	end
 end)
 
+--==================================================
+-- LOCK / MINIMIZE / CLOSE / REOPEN
+--==================================================
+
 local minimized = false
+local menuVisible = true
+
+local function showMenu()
+	menuVisible = true
+	frame.Visible = true
+	reopenButton.Visible = false
+end
+
+local function hideMenu()
+	menuVisible = false
+	frame.Visible = false
+	reopenButton.Visible = true
+end
+
+lockButton.MouseButton1Click:Connect(function()
+	guiLocked = not guiLocked
+	if guiLocked then
+		lockButton.Text = "🔒"
+		lockButton.BackgroundColor3 = Color3.fromRGB(70, 45, 45)
+	else
+		lockButton.Text = "🔓"
+		lockButton.BackgroundColor3 = Color3.fromRGB(42, 44, 52)
+	end
+end)
 
 minimizeButton.MouseButton1Click:Connect(function()
 	minimized = not minimized
@@ -311,5 +558,62 @@ minimizeButton.MouseButton1Click:Connect(function()
 		content.Visible = true
 		frame.Size = UDim2.fromOffset(280, 330)
 		minimizeButton.Text = "-"
+	end
+end)
+
+closeButton.MouseButton1Click:Connect(function()
+	hideMenu()
+	sendNotification("Scripts by Arbuz", "Launcher closed. Press Right Shift to reopen.")
+end)
+
+closeButton.MouseEnter:Connect(function()
+	closeButton.BackgroundColor3 = Color3.fromRGB(180, 55, 55)
+end)
+
+closeButton.MouseLeave:Connect(function()
+	closeButton.BackgroundColor3 = Color3.fromRGB(42, 44, 52)
+end)
+
+reopenButton.MouseButton1Click:Connect(function()
+	showMenu()
+end)
+
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed then return end
+	if input.KeyCode == Enum.KeyCode.RightShift then
+		if menuVisible then
+			hideMenu()
+		else
+			showMenu()
+		end
+	end
+end)
+
+local reopenDragging = false
+local reopenDragStart
+local reopenDragStartPosition
+
+reopenButton.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		reopenDragging = true
+		reopenDragStart = input.Position
+		reopenDragStartPosition = reopenButton.Position
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if not reopenDragging then return end
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		local delta = input.Position - reopenDragStart
+		reopenButton.Position = UDim2.new(
+			reopenDragStartPosition.X.Scale, reopenDragStartPosition.X.Offset + delta.X,
+			reopenDragStartPosition.Y.Scale, reopenDragStartPosition.Y.Offset + delta.Y
+		)
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		reopenDragging = false
 	end
 end)
