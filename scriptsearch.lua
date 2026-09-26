@@ -10,18 +10,10 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
---==================================================
--- MM2 GAME IDS
---==================================================
-
 local MM2_PLACE_IDS = {
-	[142823291] = true,        -- Murder Mystery 2 (main game)
-	[121787682648572] = true,  -- reserved server variant
+	[142823291] = true,
+	[121787682648572] = true,
 }
-
---==================================================
--- NOTIFICATION UTILITY
---==================================================
 
 local function sendNotification(title, text)
 	pcall(function()
@@ -33,17 +25,13 @@ local function sendNotification(title, text)
 	end)
 end
 
---==================================================
--- GAME CHECK (safe, callable later)
---==================================================
-
+-- Game check is now a function that runs ONLY when clicked.
+-- Wrapped in pcall so a failed API call can't crash the script.
 local function isInMM2()
-	-- Fast path: check PlaceId
 	if MM2_PLACE_IDS[game.PlaceId] then
 		return true
 	end
 
-	-- Slow path: check game name (wrapped so it can't crash)
 	local ok, result = pcall(function()
 		return MarketplaceService:GetProductInfo(game.PlaceId).Name
 	end)
@@ -55,16 +43,8 @@ local function isInMM2()
 	return false
 end
 
---==================================================
--- CLEANUP
---==================================================
-
 local existing = playerGui:FindFirstChild("ScriptsByArbuz")
 if existing then existing:Destroy() end
-
---==================================================
--- GUI
---==================================================
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "ScriptsByArbuz"
@@ -74,10 +54,6 @@ gui.IgnoreGuiInset = false
 gui.Enabled = true
 gui.DisplayOrder = 100
 gui.Parent = playerGui
-
---==================================================
--- MAIN FRAME
---==================================================
 
 local frame = Instance.new("Frame")
 frame.Name = "Main"
@@ -98,10 +74,6 @@ frameStroke.Color = Color3.fromRGB(55, 57, 65)
 frameStroke.Thickness = 1
 frameStroke.Parent = frame
 
---==================================================
--- HEADER
---==================================================
-
 local header = Instance.new("Frame")
 header.Name = "Header"
 header.Size = UDim2.new(1, 0, 0, 48)
@@ -113,10 +85,6 @@ header.Parent = frame
 local headerCorner = Instance.new("UICorner")
 headerCorner.CornerRadius = UDim.new(0, 12)
 headerCorner.Parent = header
-
---==================================================
--- TITLE
---==================================================
 
 local title = Instance.new("TextLabel")
 title.Name = "Title"
@@ -131,10 +99,6 @@ title.TextXAlignment = Enum.TextXAlignment.Left
 title.TextYAlignment = Enum.TextYAlignment.Center
 title.ZIndex = 2
 title.Parent = header
-
---==================================================
--- MINIMIZE BUTTON
---==================================================
 
 local minimizeButton = Instance.new("TextButton")
 minimizeButton.Name = "Minimize"
@@ -154,10 +118,6 @@ minimizeButton.Parent = header
 local minimizeCorner = Instance.new("UICorner")
 minimizeCorner.CornerRadius = UDim.new(0, 7)
 minimizeCorner.Parent = minimizeButton
-
---==================================================
--- CONTENT
---==================================================
 
 local content = Instance.new("ScrollingFrame")
 content.Name = "Content"
@@ -183,10 +143,6 @@ local function getLayoutOrder()
 	return currentLayoutOrder
 end
 
---==================================================
--- SEARCH BAR
---==================================================
-
 local searchBox = Instance.new("TextBox")
 searchBox.Name = "SearchBox"
 searchBox.Size = UDim2.new(1, 0, 0, 36)
@@ -211,19 +167,11 @@ searchPadding.PaddingLeft = UDim.new(0, 10)
 searchPadding.PaddingRight = UDim.new(0, 10)
 searchPadding.Parent = searchBox
 
---==================================================
--- SCRIPT LIST
---==================================================
-
 local scriptButtons = {}
 
 local function registerScriptButton(name, button)
 	table.insert(scriptButtons, { Name = name, Button = button })
 end
-
---==================================================
--- MM2 SCRIPT BUTTON
---==================================================
 
 local mm2Button = Instance.new("TextButton")
 mm2Button.Name = "MM2"
@@ -275,10 +223,6 @@ mm2Button.MouseLeave:Connect(function()
 	mm2Button.BackgroundColor3 = Color3.fromRGB(34, 36, 43)
 end)
 
---==================================================
--- MM2 CLICK HANDLER
---==================================================
-
 local function resetMm2Button()
 	mm2Button.Text = "MM2"
 	mm2Button.TextColor3 = Color3.fromRGB(230, 230, 235)
@@ -315,10 +259,6 @@ end)
 
 registerScriptButton("MM2", mm2Button)
 
---==================================================
--- SEARCH FILTER
---==================================================
-
 searchBox:GetPropertyChangedSignal("Text"):Connect(function()
 	local query = string.lower(searchBox.Text)
 
@@ -329,10 +269,6 @@ searchBox:GetPropertyChangedSignal("Text"):Connect(function()
 		end
 	end
 end)
-
---==================================================
--- DRAG MENU
---==================================================
 
 local dragging = false
 local dragStart
@@ -362,10 +298,6 @@ UserInputService.InputEnded:Connect(function(input)
 		dragging = false
 	end
 end)
-
---==================================================
--- MINIMIZE
---==================================================
 
 local minimized = false
 
