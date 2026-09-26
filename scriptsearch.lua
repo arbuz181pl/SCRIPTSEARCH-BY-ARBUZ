@@ -5,6 +5,7 @@
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local StarterGui = game:GetService("StarterGui")
+local MarketplaceService = game:GetService("MarketplaceService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -12,29 +13,11 @@ local playerGui = player:WaitForChild("PlayerGui")
 --==================================================
 -- MM2 GAME IDS
 --==================================================
--- Murder Mystery 2 has multiple PlaceIds (main + reserved servers).
--- These are the known IDs.
 
 local MM2_PLACE_IDS = {
-	[142823291] = true,   -- Murder Mystery 2 (main game)
-	[121787682648572] = true, -- MM2 (newer place id, if it exists)
+	[142823291] = true,        -- Murder Mystery 2 (main game)
+	[121787682648572] = true,  -- reserved server variant
 }
-
--- Additional loose check: game name match (in case Roblox rotates PlaceIds)
-local function isInMM2()
-	local placeId = game.PlaceId
-	local gameName = game:GetService("MarketplaceService"):GetProductInfo(placeId).Name
-
-	if MM2_PLACE_IDS[placeId] then
-		return true
-	end
-
-	if gameName and string.find(string.lower(gameName), "murder mystery 2", 1, true) then
-		return true
-	end
-
-	return false
-end
 
 --==================================================
 -- NOTIFICATION UTILITY
@@ -48,6 +31,28 @@ local function sendNotification(title, text)
 			Duration = 5
 		})
 	end)
+end
+
+--==================================================
+-- GAME CHECK (safe, callable later)
+--==================================================
+
+local function isInMM2()
+	-- Fast path: check PlaceId
+	if MM2_PLACE_IDS[game.PlaceId] then
+		return true
+	end
+
+	-- Slow path: check game name (wrapped so it can't crash)
+	local ok, result = pcall(function()
+		return MarketplaceService:GetProductInfo(game.PlaceId).Name
+	end)
+
+	if ok and result and string.find(string.lower(result), "murder mystery 2", 1, true) then
+		return true
+	end
+
+	return false
 end
 
 --==================================================
@@ -237,7 +242,6 @@ local mm2Corner = Instance.new("UICorner")
 mm2Corner.CornerRadius = UDim.new(0, 8)
 mm2Corner.Parent = mm2Button
 
--- Left accent indicator
 local mm2Indicator = Instance.new("Frame")
 mm2Indicator.Name = "Indicator"
 mm2Indicator.Size = UDim2.fromOffset(5, 24)
@@ -250,7 +254,6 @@ local mm2IndicatorCorner = Instance.new("UICorner")
 mm2IndicatorCorner.CornerRadius = UDim.new(1, 0)
 mm2IndicatorCorner.Parent = mm2Indicator
 
--- Sub-label under the button text showing game requirement
 local mm2SubLabel = Instance.new("TextLabel")
 mm2SubLabel.Name = "SubLabel"
 mm2SubLabel.Size = UDim2.new(1, -30, 0, 14)
@@ -264,7 +267,6 @@ mm2SubLabel.TextXAlignment = Enum.TextXAlignment.Left
 mm2SubLabel.ZIndex = 3
 mm2SubLabel.Parent = mm2Button
 
--- Hover effect
 mm2Button.MouseEnter:Connect(function()
 	mm2Button.BackgroundColor3 = Color3.fromRGB(45, 47, 56)
 end)
@@ -274,7 +276,7 @@ mm2Button.MouseLeave:Connect(function()
 end)
 
 --==================================================
--- MM2 CLICK HANDLER (gated to MM2 only)
+-- MM2 CLICK HANDLER
 --==================================================
 
 local function resetMm2Button()
@@ -283,7 +285,6 @@ local function resetMm2Button()
 end
 
 mm2Button.MouseButton1Click:Connect(function()
-	-- Game check
 	if not isInMM2() then
 		mm2Button.Text = "Not in MM2"
 		mm2Button.TextColor3 = Color3.fromRGB(255, 100, 100)
@@ -293,7 +294,6 @@ mm2Button.MouseButton1Click:Connect(function()
 		return
 	end
 
-	-- Loading state
 	mm2Button.Text = "Loading..."
 	mm2Button.TextColor3 = Color3.fromRGB(255, 205, 50)
 
