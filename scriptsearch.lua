@@ -20,6 +20,15 @@ local MM2_PLACE_IDS = {
 }
 
 --==================================================
+-- SCRIPT URLS
+--==================================================
+
+local SCRIPT_URLS = {
+	MM2 = "https://raw.githubusercontent.com/arbuz181pl/MM2-MENU-BY-ARBUZ/refs/heads/main/MM2MENU.lua",
+	DEX = "https://raw.githubusercontent.com/arbuz181pl/dex/refs/heads/main/dex.lua",
+}
+
+--==================================================
 -- NOTIFICATION UTILITY
 --==================================================
 
@@ -464,9 +473,7 @@ local function resetMm2Button()
 end
 
 mm2Button.MouseButton1Click:Connect(function()
-	--==================================================
 	-- STEP 1: GAME CHECK
-	--==================================================
 	local inMM2, reason = isInMM2()
 	if not inMM2 then
 		mm2Button.Text = "Wrong game"
@@ -479,74 +486,22 @@ mm2Button.MouseButton1Click:Connect(function()
 		return
 	end
 
-	--==================================================
-	-- STEP 2: DOWNLOAD
-	--==================================================
-	mm2Button.Text = "Downloading..."
+	-- STEP 2: LOADSTRING EXECUTE
+	mm2Button.Text = "Loading..."
 	mm2Button.TextColor3 = Color3.fromRGB(255, 205, 50)
 	mm2Indicator.BackgroundColor3 = Color3.fromRGB(255, 205, 50)
 
-	local url = "https://raw.githubusercontent.com/arbuz181pl/MM2-MENU-BY-ARBUZ/refs/heads/main/MM2MENU.lua"
-	local downloadOk, content = pcall(function()
-		return game:HttpGet(url .. "?v=" .. tick())
-	end)
+	local url = SCRIPT_URLS.MM2 .. "?v=" .. tick()
 
-	if not downloadOk then
-		mm2Button.Text = "Download failed"
-		mm2Button.TextColor3 = Color3.fromRGB(255, 100, 100)
-		mm2Indicator.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-		sendNotification("Scripts by Arbuz", "Failed to download MM2 script.\n" .. tostring(content))
-		warn("[Scripts by Arbuz] HttpGet failed:", content)
-		task.wait(3)
-		resetMm2Button()
-		return
-	end
-
-	if not content or #content == 0 then
-		mm2Button.Text = "Empty file"
-		mm2Button.TextColor3 = Color3.fromRGB(255, 100, 100)
-		mm2Indicator.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-		sendNotification("Scripts by Arbuz", "Downloaded file is empty. Check the URL.")
-		warn("[Scripts by Arbuz] Downloaded content is empty")
-		task.wait(3)
-		resetMm2Button()
-		return
-	end
-
-	--==================================================
-	-- STEP 3: COMPILE
-	--==================================================
-	mm2Button.Text = "Compiling..."
-	mm2Button.TextColor3 = Color3.fromRGB(255, 205, 50)
-	mm2Indicator.BackgroundColor3 = Color3.fromRGB(255, 205, 50)
-
-	local fn, compileErr = loadstring(content)
-	if not fn then
-		mm2Button.Text = "Compile error"
-		mm2Button.TextColor3 = Color3.fromRGB(255, 100, 100)
-		mm2Indicator.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-		sendNotification("Scripts by Arbuz", "MM2 script has a syntax error. Check F9.")
-		warn("[Scripts by Arbuz] Compile error:", compileErr)
-		task.wait(3)
-		resetMm2Button()
-		return
-	end
-
-	--==================================================
-	-- STEP 4: CLOSE LAUNCHER FIRST, THEN RUN MM2
-	--==================================================
-	-- We destroy the launcher BEFORE running MM2 so it disappears
-	-- immediately, regardless of whether MM2 yields, errors, or blocks.
+	-- Close launcher before MM2 boots so the menu is gone
 	sendNotification("Scripts by Arbuz", "Loading MM2...")
 	gui:Destroy()
-
-	-- Give one frame for the GUI to actually disappear
 	task.wait(0.1)
 
-	-- Run MM2 in a separate thread so the launcher's click handler
-	-- doesn't block on it and errors are logged cleanly.
 	task.spawn(function()
-		local runOk, runErr = pcall(fn)
+		local runOk, runErr = pcall(function()
+			loadstring(game:HttpGet(url))()
+		end)
 		if not runOk then
 			warn("[Scripts by Arbuz] MM2 runtime error:", runErr)
 			pcall(function()
@@ -561,6 +516,61 @@ mm2Button.MouseButton1Click:Connect(function()
 end)
 
 registerScriptButton("MM2", mm2Button)
+
+--==================================================
+-- DEX SCRIPT BUTTON
+--==================================================
+
+local dexButton, dexIndicator = createScriptButton("Dex", "DEX Explorer")
+dexIndicator.BackgroundColor3 = Color3.fromRGB(80, 200, 120)
+
+local dexSubLabel = Instance.new("TextLabel")
+dexSubLabel.Name = "SubLabel"
+dexSubLabel.Size = UDim2.new(1, -30, 0, 12)
+dexSubLabel.Position = UDim2.new(0, 22, 1, -14)
+dexSubLabel.BackgroundTransparency = 1
+dexSubLabel.Text = "Universal script explorer"
+dexSubLabel.TextColor3 = Color3.fromRGB(150, 153, 165)
+dexSubLabel.TextSize = 10
+dexSubLabel.Font = Enum.Font.GothamBold
+dexSubLabel.TextXAlignment = Enum.TextXAlignment.Left
+dexSubLabel.ZIndex = 3
+dexSubLabel.Parent = dexButton
+
+dexButton.MouseButton1Click:Connect(function()
+	-- DEX runs in any game - no MM2 check needed
+	dexButton.Text = "Loading..."
+	dexButton.TextColor3 = Color3.fromRGB(255, 205, 50)
+	dexIndicator.BackgroundColor3 = Color3.fromRGB(255, 205, 50)
+
+	local url = SCRIPT_URLS.DEX .. "?v=" .. tick()
+
+	sendNotification("Scripts by Arbuz", "Loading DEX...")
+
+	task.spawn(function()
+		local runOk, runErr = pcall(function()
+			loadstring(game:HttpGet(url))()
+		end)
+		if not runOk then
+			warn("[Scripts by Arbuz] DEX runtime error:", runErr)
+			pcall(function()
+				StarterGui:SetCore("SendNotification", {
+					Title = "Scripts by Arbuz",
+					Text = "DEX crashed. Check F9.",
+					Duration = 5
+				})
+			end)
+		end
+	end)
+
+	-- Reset button after a moment (DEX runs alongside the launcher)
+	task.wait(2)
+	dexButton.Text = "DEX Explorer"
+	dexButton.TextColor3 = Color3.fromRGB(230, 230, 235)
+	dexIndicator.BackgroundColor3 = Color3.fromRGB(80, 200, 120)
+end)
+
+registerScriptButton("DEX Explorer", dexButton)
 
 --==================================================
 -- SEARCH FILTER
